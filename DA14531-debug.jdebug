@@ -1,0 +1,47 @@
+__constant U32 SYS_CTRL_REG = 0x50000012;
+__constant U32 SYS_RAM1 = 0x07FC0000;
+__constant U32 SYS_RAM2 = 0x07FC4000;
+__constant U32 SYS_RAM3 = 0x07FC7000;
+
+void OnProjectLoad()
+{
+    // Disable RTT to be able to use SystemView simultaneously
+    Project.SetRTT(0);
+    // Set the target MCU
+    Project.SetDevice("Cortex-M0+");
+    Project.SetHostIF("USB", "");
+    Project.SetTargetIF("SWD");
+    Project.SetTIFSpeed("1 MHz");
+    Project.AddSvdFile("Cortex-M0.svd");
+    Project.SetPeripheralFile("$(ProjectDir)/DA14531.svd");
+    Project.AddSearchPath(".");
+    // elf-like project file
+    File.Open("$(ProjectDir)/build/DA14531_App.elf");
+}
+
+void TargetDownload(void) {
+    U16 sysCtrl;
+
+    // Read
+    sysCtrl = Target.ReadU16(SYS_CTRL_REG);
+    Util.LogHex("SYS_CTRL_REG = ", sysCtrl);
+    // Add bits that remap to SysRAM1
+    sysCtrl = (sysCtrl & 0xFFFC) | 0x2;
+    Util.Log("Remapping to SysRAM1.");
+
+    // Write to SYS_CTRL_REG
+    Target.WriteU16(SYS_CTRL_REG, sysCtrl);
+    sysCtrl = Target.ReadU16(SYS_CTRL_REG);
+    Util.LogHex("SYS_CTRL_REG = ", sysCtrl);
+    Exec.Reset();
+
+    // Download RAM
+    Util.Log("Downloading program into RAM.");
+    Target.LoadMemory("$(ProjectDir)/build/DA14531_App.elf", SYS_RAM1);
+
+    // Set up for execution
+    Util.Log("Setting up SP and PC.");
+    Target.SetReg("SP", Target.ReadU32(SYS_RAM1));
+    Target.SetReg("PC", Target.ReadU32(SYS_RAM1 + 4));
+    Util.Log("Done.");
+}

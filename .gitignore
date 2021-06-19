@@ -1,0 +1,11 @@
+# VSCode
+.vscode/
+
+# Build directory
+build/
+
+# JLink files
+JLinkLog.txt
+
+# Ozone files
+*.jdebug.user
